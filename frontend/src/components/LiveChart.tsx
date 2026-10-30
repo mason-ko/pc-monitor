@@ -67,6 +67,11 @@ export function LiveChart({ data }: LiveChartProps) {
           cursor={{ stroke: CHART.muted, strokeDasharray: "4 4" }}
         />
         <Legend wrapperStyle={{ fontSize: 12, color: CHART.muted }} />
+        {/* Recharts re-runs the line-drawing animation every time `data`
+            changes (recharts 2.15.x restarts whenever the points differ), so
+            with polling each ~2 s sample re-drew the whole line from the left
+            edge. Disabling the animation makes new points extend the line
+            instead. */}
         <Line
           type="monotone"
           dataKey="cpu"
@@ -75,6 +80,7 @@ export function LiveChart({ data }: LiveChartProps) {
           strokeWidth={2}
           dot={false}
           connectNulls={false}
+          isAnimationActive={false}
         />
         <Line
           type="monotone"
@@ -84,6 +90,7 @@ export function LiveChart({ data }: LiveChartProps) {
           strokeWidth={2}
           dot={false}
           connectNulls={false}
+          isAnimationActive={false}
         />
         <Line
           type="monotone"
@@ -93,6 +100,7 @@ export function LiveChart({ data }: LiveChartProps) {
           strokeWidth={2}
           dot={false}
           connectNulls={false}
+          isAnimationActive={false}
         />
       </LineChart>
     </ResponsiveContainer>
