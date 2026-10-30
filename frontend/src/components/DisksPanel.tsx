@@ -35,6 +35,7 @@ export function DisksPanel({ disks }: { disks: DisksSection }) {
                 aria-valuenow={part.percent ?? undefined}
                 aria-valuemin={0}
                 aria-valuemax={100}
+                aria-valuetext={fmtPercent(part.percent)}
               >
                 <div
                   className="fill"

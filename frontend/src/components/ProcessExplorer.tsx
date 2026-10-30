@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { memo, useContext, useMemo, useState } from "react";
 import type { ProcessRow, ProcessesResponse } from "../api";
 import { I18nContext, tr } from "../i18n";
 import { fmtBytes, fmtPercent } from "../format";
@@ -20,7 +20,17 @@ function compareNullable(a: number | null, b: number | null): number {
   return b - a; // descending
 }
 
-export function ProcessExplorer({ response, loading, error }: ProcessExplorerProps) {
+/**
+ * Memoized for the same reason as LiveChart: the system poll (every 2 s)
+ * re-renders App with an unchanged `response` reference, and re-rendering
+ * the visible process rows on those ticks is pure churn. The props are a
+ * fresh object only when the processes poll actually returns new data.
+ */
+export const ProcessExplorer = memo(function ProcessExplorer({
+  response,
+  loading,
+  error,
+}: ProcessExplorerProps) {
   const { t } = useContext(I18nContext);
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("memory");
@@ -45,7 +55,13 @@ export function ProcessExplorer({ response, loading, error }: ProcessExplorerPro
   }, [response, query, sortKey]);
 
   if (loading && !response) {
-    return <p className="muted">{t.processes.loading}</p>;
+    // A polite live region so screen readers announce the transition from
+    // "loading" to the table arriving (or failing) without stealing focus.
+    return (
+      <p className="muted" role="status">
+        {t.processes.loading}
+      </p>
+    );
   }
 
   return (
@@ -92,10 +108,10 @@ export function ProcessExplorer({ response, loading, error }: ProcessExplorerPro
           <table className="table">
             <thead>
               <tr>
-                <th>{t.processes.colProcess}</th>
-                <th className="num">{t.processes.colPid}</th>
-                <th className="num">{t.processes.colCpu}</th>
-                <th className="num">{t.processes.colMemory}</th>
+                <th scope="col">{t.processes.colProcess}</th>
+                <th scope="col" className="num">{t.processes.colPid}</th>
+                <th scope="col" className="num">{t.processes.colCpu}</th>
+                <th scope="col" className="num">{t.processes.colMemory}</th>
               </tr>
             </thead>
             <tbody>
@@ -125,4 +141,4 @@ export function ProcessExplorer({ response, loading, error }: ProcessExplorerPro
       )}
     </div>
   );
-}
+});

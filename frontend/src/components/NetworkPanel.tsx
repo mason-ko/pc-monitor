@@ -28,11 +28,11 @@ export function NetworkPanel({ network }: { network: NetworkSection }) {
       <table className="table">
         <thead>
           <tr>
-            <th>{t.network.colInterface}</th>
-            <th className="num">{t.network.colRx}</th>
-            <th className="num">{t.network.colTx}</th>
-            <th className="num">{t.network.colRxTotal}</th>
-            <th className="num">{t.network.colTxTotal}</th>
+            <th scope="col">{t.network.colInterface}</th>
+            <th scope="col" className="num">{t.network.colRx}</th>
+            <th scope="col" className="num">{t.network.colTx}</th>
+            <th scope="col" className="num">{t.network.colRxTotal}</th>
+            <th scope="col" className="num">{t.network.colTxTotal}</th>
           </tr>
         </thead>
         <tbody>

@@ -9,8 +9,17 @@ export interface DurationUnits {
   seconds: string;
 }
 
+/**
+ * Only finite numbers are renderable. A malformed timestamp in an API
+ * response (e.g. `boot_time`) propagates as `Date.parse(...) → NaN` into the
+ * uptime, and `NaN.toFixed()` would otherwise print "NaNm NaNs" in the UI.
+ */
+function isFiniteNumber(n: number | null | undefined): n is number {
+  return typeof n === "number" && Number.isFinite(n);
+}
+
 export function fmtBytes(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
+  if (!isFiniteNumber(n)) return "—";
   let value = n;
   let i = 0;
   while (value >= 1024 && i < UNITS.length - 1) {
@@ -22,12 +31,12 @@ export function fmtBytes(n: number | null | undefined): string {
 }
 
 export function fmtRate(bps: number | null | undefined): string {
-  if (bps === null || bps === undefined) return "—";
+  if (!isFiniteNumber(bps)) return "—";
   return `${fmtBytes(bps)}/s`;
 }
 
 export function fmtPercent(p: number | null | undefined): string {
-  if (p === null || p === undefined) return "—";
+  if (!isFiniteNumber(p)) return "—";
   return `${p.toFixed(1)}%`;
 }
 
@@ -35,7 +44,7 @@ export function fmtDuration(
   seconds: number | null | undefined,
   units: DurationUnits = { days: "d", hours: "h", minutes: "m", seconds: "s" },
 ): string {
-  if (seconds === null || seconds === undefined || seconds < 0) return "—";
+  if (!isFiniteNumber(seconds) || seconds < 0) return "—";
   const s = Math.floor(seconds);
   const days = Math.floor(s / 86400);
   const hours = Math.floor((s % 86400) / 3600);

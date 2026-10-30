@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { I18nProvider } from "../i18n/I18nProvider";
@@ -227,5 +227,206 @@ describe("language persistence across reloads", () => {
     renderApp();
     expect(await screen.findByRole("heading", { name: "System information" })).toBeTruthy();
     expect(window.localStorage.getItem(LANG_STORAGE_KEY)).toBe("en");
+  });
+});
+
+function errorJson(status: number, detail: string): Response {
+  return new Response(JSON.stringify({ detail }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+describe("backend failure surfacing", () => {
+  it("shows the unreachable banner with the underlying error while retrying", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.reject(new TypeError("connect ECONNREFUSED 127.0.0.1:8000")),
+      ),
+    );
+    renderApp();
+    const alert = await screen.findByRole("alert");
+    expect((alert.textContent ?? "").includes("Backend unreachable")).toBe(true);
+    // The raw failure string is surfaced so the user can diagnose the cause.
+    expect(screen.getByText(/ECONNREFUSED/)).toBeTruthy();
+    expect(screen.getByText("Retrying automatically…")).toBeTruthy();
+  });
+
+  it("keeps the last good data and warns when a later system refresh fails", async () => {
+    let systemCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("/api/system")) {
+          systemCalls += 1;
+          if (systemCalls === 1) return jsonResponse(systemFixture);
+          return errorJson(500, "system metrics collection failed: cpu sensor exploded");
+        }
+        if (url.startsWith("/api/processes")) return jsonResponse(processesFixture);
+        return jsonResponse(healthFixture);
+      }),
+    );
+    renderApp();
+    expect(await screen.findByRole("heading", { name: "Live monitoring" })).toBeTruthy();
+
+    // The system poll fires again after its 2 s interval; the failure banner
+    // appears while the healthy dashboard stays rendered.
+    const alert = await screen.findByRole("alert", undefined, { timeout: 5000 });
+    expect((alert.textContent ?? "").includes("System refresh failed")).toBe(true);
+    expect((alert.textContent ?? "").includes("cpu sensor exploded")).toBe(true);
+    // Last successful data is retained, not blanked out.
+    expect(screen.getByRole("columnheader", { name: "Process" })).toBeTruthy();
+    expect(screen.getAllByText("Test CPU 8-Core").length).toBeGreaterThan(0);
+  });
+
+  it("shows the process refresh failure banner without losing the table", async () => {
+    let processCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("/api/processes")) {
+          processCalls += 1;
+          if (processCalls === 1) return jsonResponse(processesFixture);
+          return errorJson(500, "process collection failed: enumeration exploded");
+        }
+        if (url.startsWith("/api/system")) return jsonResponse(systemFixture);
+        return jsonResponse(healthFixture);
+      }),
+    );
+    renderApp();
+    expect(await screen.findByText("test.exe")).toBeTruthy();
+
+    const alert = await screen.findByRole("alert", undefined, { timeout: 5000 });
+    expect((alert.textContent ?? "").includes("Process refresh failed")).toBe(true);
+    expect((alert.textContent ?? "").includes("enumeration exploded")).toBe(true);
+    expect(screen.getByText("test.exe")).toBeTruthy(); // stale rows kept
+  });
+});
+
+describe("process explorer behavior", () => {
+  const explorerFixture: ProcessesResponse = {
+    processes: [
+      { pid: 10, name: "heavy.exe", username: "tester", cpu_percent: 5, memory_bytes: 900_000_000, error: null },
+      { pid: 20, name: "busy.exe", username: "tester", cpu_percent: 40, memory_bytes: 50_000_000, error: null },
+      { pid: 30, name: "idle.exe", username: "tester", cpu_percent: 0.5, memory_bytes: 1_000_000, error: null },
+    ],
+    count: 300,
+    returned: 3,
+    truncated: true,
+    timestamp: systemFixture.timestamp,
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("/api/processes")) return jsonResponse(explorerFixture);
+        if (url.startsWith("/api/system")) return jsonResponse(systemFixture);
+        return jsonResponse(healthFixture);
+      }),
+    );
+  });
+
+  // The dashboard renders two tables (network + processes); anchor queries to
+  // the process explorer section so row assertions only see process rows.
+  function procSection(): HTMLElement {
+    const heading = screen.getByRole("heading", { name: "Process explorer" });
+    const section = heading.closest("section");
+    if (!section) throw new Error("process explorer section is not rendered");
+    return section as HTMLElement;
+  }
+
+  function firstCellTexts(): string[] {
+    return within(procSection())
+      .queryAllByRole("row")
+      .slice(1) // drop the header row
+      .map((row) => row.querySelector("td")?.textContent ?? "");
+  }
+
+  it("sorts by memory by default and re-sorts by CPU on demand", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    expect(await screen.findByText("heavy.exe")).toBeTruthy();
+    expect(firstCellTexts()).toEqual(["heavy.exe", "busy.exe", "idle.exe"]);
+
+    await user.click(screen.getByRole("button", { name: "Sort by CPU" }));
+    expect(firstCellTexts()).toEqual(["busy.exe", "heavy.exe", "idle.exe"]);
+    expect(
+      screen.getByRole("button", { name: "Sort by CPU" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("filters by name and by exact PID, and says so when nothing matches", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    const search = await screen.findByRole("searchbox", { name: "Search processes" });
+
+    await user.type(search, "busy");
+    expect(firstCellTexts()).toEqual(["busy.exe"]);
+    // The counter describes the filtered set: 1 shown of 1 match.
+    expect(screen.getByText("Showing 1 of 1")).toBeTruthy();
+
+    await user.clear(search);
+    await user.type(search, "20");
+    expect(firstCellTexts()).toEqual(["busy.exe"]); // PID hit, not a name substring
+
+    await user.clear(search);
+    await user.type(search, "nosuchproc");
+    expect(screen.getByText("No processes match “nosuchproc”.")).toBeTruthy();
+    expect(within(procSection()).queryAllByRole("row")).toHaveLength(0);
+  });
+
+  it("states how many rows are shown of the truncated process total", async () => {
+    renderApp();
+    expect(
+      await screen.findByText(/Showing 3 of 3 \(of 300 running processes total\)/),
+    ).toBeTruthy();
+  });
+});
+
+describe("semantic markup", () => {
+  it("associates table headers with columns and gives disk meters readable values", async () => {
+    renderApp();
+    for (const name of ["Process", "PID", "Interface"]) {
+      const header = await screen.findByRole("columnheader", { name });
+      expect(header.getAttribute("scope")).toBe("col");
+    }
+    const meter = screen.getByRole("meter", { name: "Usage of C:\\" });
+    expect(meter.getAttribute("aria-valuetext")).toBe("50.0%");
+  });
+
+  it("marks the system loading message as a polite live region", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("/api/system") || url.startsWith("/api/processes")) {
+          return new Promise<Response>(() => {}); // never settles: stays loading
+        }
+        return jsonResponse(healthFixture);
+      }),
+    );
+    renderApp();
+    const sysMsg = await screen.findByText("Loading system data…");
+    expect(sysMsg.getAttribute("role")).toBe("status");
+  });
+
+  it("marks the process list loading message as a polite live region", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("/api/system")) return jsonResponse(systemFixture);
+        if (url.startsWith("/api/processes")) return new Promise<Response>(() => {});
+        return jsonResponse(healthFixture);
+      }),
+    );
+    renderApp();
+    const procMsg = await screen.findByText("Loading process list…");
+    expect(procMsg.getAttribute("role")).toBe("status");
   });
 });

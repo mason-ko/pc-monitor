@@ -106,7 +106,25 @@ export interface HealthResponse {
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path, { headers: { Accept: "application/json" } });
   if (!res.ok) {
-    throw new Error(`${path} responded ${res.status} ${res.statusText}`);
+    // The backend explains *why* an endpoint failed in the JSON body
+    // (FastAPI sends {"detail": "..."} for its 500s); without it the UI
+    // banners could only ever say "500 Internal Server Error".
+    let detail = "";
+    try {
+      const body: unknown = await res.json();
+      if (
+        body &&
+        typeof body === "object" &&
+        "detail" in body &&
+        typeof body.detail === "string"
+      ) {
+        detail = ` — ${body.detail}`;
+      }
+    } catch {
+      // Non-JSON error body (proxy error page etc.): the status line is all
+      // we have, and that is still better than swallowing the failure.
+    }
+    throw new Error(`${path} responded ${res.status} ${res.statusText}${detail}`);
   }
   return (await res.json()) as T;
 }

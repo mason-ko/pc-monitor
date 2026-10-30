@@ -71,7 +71,9 @@ export default function App() {
       <div className="page">
         <Header hostname={null} osLabel={null} online={health.data?.status === "ok"} />
         <div className="card">
-          <p className="loading-pulse">{t.states.loadingSystem}</p>
+          <p className="loading-pulse" role="status">
+            {t.states.loadingSystem}
+          </p>
         </div>
       </div>
     );
