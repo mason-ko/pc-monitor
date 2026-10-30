@@ -1,12 +1,19 @@
+import { useContext } from "react";
 import type { NetworkSection } from "../api";
+import { I18nContext, tr } from "../i18n";
 import { fmtBytes, fmtRate } from "../format";
 
 export function NetworkPanel({ network }: { network: NetworkSection }) {
+  const { t } = useContext(I18nContext);
   if (network.error) {
-    return <p className="unavailable-note">Network data unavailable: {network.error}</p>;
+    return (
+      <p className="unavailable-note">
+        {tr(t.network.unavailable, { error: network.error })}
+      </p>
+    );
   }
   if (network.interfaces.length === 0) {
-    return <p className="muted">No network interfaces found.</p>;
+    return <p className="muted">{t.network.noInterfaces}</p>;
   }
   return (
     <div>
@@ -21,11 +28,11 @@ export function NetworkPanel({ network }: { network: NetworkSection }) {
       <table className="table">
         <thead>
           <tr>
-            <th>Interface</th>
-            <th className="num">RX</th>
-            <th className="num">TX</th>
-            <th className="num">RX total</th>
-            <th className="num">TX total</th>
+            <th>{t.network.colInterface}</th>
+            <th className="num">{t.network.colRx}</th>
+            <th className="num">{t.network.colTx}</th>
+            <th className="num">{t.network.colRxTotal}</th>
+            <th className="num">{t.network.colTxTotal}</th>
           </tr>
         </thead>
         <tbody>

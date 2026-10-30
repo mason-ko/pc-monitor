@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import type { ProcessRow, ProcessesResponse } from "../api";
+import { I18nContext, tr } from "../i18n";
 import { fmtBytes, fmtPercent } from "../format";
 
 type SortKey = "cpu" | "memory";
@@ -20,6 +21,7 @@ function compareNullable(a: number | null, b: number | null): number {
 }
 
 export function ProcessExplorer({ response, loading, error }: ProcessExplorerProps) {
+  const { t } = useContext(I18nContext);
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("memory");
 
@@ -43,33 +45,33 @@ export function ProcessExplorer({ response, loading, error }: ProcessExplorerPro
   }, [response, query, sortKey]);
 
   if (loading && !response) {
-    return <p className="muted">Loading process list…</p>;
+    return <p className="muted">{t.processes.loading}</p>;
   }
 
   return (
     <div>
       {error && response && (
         <p className="banner banner-error" role="alert">
-          ⚠ Process refresh failed: {error}
+          {tr(t.processes.refreshFailed, { error })}
         </p>
       )}
       <div className="proc-controls">
         <input
           type="search"
           className="search"
-          placeholder="Search by name or PID…"
+          placeholder={t.processes.searchPlaceholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="Search processes"
+          aria-label={t.processes.searchAria}
         />
-        <div className="sort-buttons" role="group" aria-label="Sort processes">
+        <div className="sort-buttons" role="group" aria-label={t.processes.sortAria}>
           <button
             type="button"
             className={sortKey === "cpu" ? "active" : ""}
             aria-pressed={sortKey === "cpu"}
             onClick={() => setSortKey("cpu")}
           >
-            Sort by CPU
+            {t.processes.sortByCpu}
           </button>
           <button
             type="button"
@@ -77,33 +79,31 @@ export function ProcessExplorer({ response, loading, error }: ProcessExplorerPro
             aria-pressed={sortKey === "memory"}
             onClick={() => setSortKey("memory")}
           >
-            Sort by Memory
+            {t.processes.sortByMemory}
           </button>
         </div>
       </div>
       {rows.length === 0 ? (
         <p className="muted">
-          {query
-            ? `No processes match “${query}”.`
-            : "No processes were reported."}
+          {query ? tr(t.processes.noMatch, { query }) : t.processes.noneReported}
         </p>
       ) : (
         <>
           <table className="table">
             <thead>
               <tr>
-                <th>Process</th>
-                <th className="num">PID</th>
-                <th className="num">CPU</th>
-                <th className="num">Memory</th>
+                <th>{t.processes.colProcess}</th>
+                <th className="num">{t.processes.colPid}</th>
+                <th className="num">{t.processes.colCpu}</th>
+                <th className="num">{t.processes.colMemory}</th>
               </tr>
             </thead>
             <tbody>
               {rows.slice(0, MAX_VISIBLE_ROWS).map((row: ProcessRow) => (
                 <tr key={row.pid}>
                   <td className="truncate" title={row.error ?? row.name ?? undefined}>
-                    {row.name && row.name.trim() ? row.name : `PID ${row.pid}`}
-                    {row.error && <span className="denied-badge"> restricted</span>}
+                    {row.name && row.name.trim() ? row.name : tr(t.processes.pidLabel, { pid: row.pid })}
+                    {row.error && <span className="denied-badge">{t.processes.restricted}</span>}
                   </td>
                   <td className="num">{row.pid}</td>
                   <td className="num">{fmtPercent(row.cpu_percent)}</td>
@@ -113,9 +113,12 @@ export function ProcessExplorer({ response, loading, error }: ProcessExplorerPro
             </tbody>
           </table>
           <p className="muted proc-count">
-            Showing {Math.min(rows.length, MAX_VISIBLE_ROWS)} of {rows.length}
+            {tr(t.processes.showing, {
+              shown: Math.min(rows.length, MAX_VISIBLE_ROWS),
+              total: rows.length,
+            })}
             {response?.truncated && rows.length === response.returned
-              ? ` (of ${response.count} running processes total)`
+              ? tr(t.processes.ofRunning, { count: response.count })
               : ""}
           </p>
         </>

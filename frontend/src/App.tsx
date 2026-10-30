@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
   fetchHealth,
   fetchProcesses,
@@ -8,16 +8,19 @@ import {
 import { SERIES, STATUS } from "./colors";
 import { DisksPanel } from "./components/DisksPanel";
 import { GaugeCard } from "./components/GaugeCard";
+import { LanguageSelect } from "./components/LanguageSelect";
 import { LiveChart, type ChartPoint } from "./components/LiveChart";
 import { NetworkPanel } from "./components/NetworkPanel";
 import { ProcessExplorer } from "./components/ProcessExplorer";
 import { SystemInfoPanel } from "./components/SystemInfoPanel";
+import { I18nContext, tr } from "./i18n";
 import { fmtBytes } from "./format";
 import { usePolling } from "./usePolling";
 
 const HISTORY_LIMIT = 60; // ~2 minutes at 2 s refresh
 
 export default function App() {
+  const { t } = useContext(I18nContext);
   const system = usePolling<SystemInfo>(fetchSystem, 2000);
   const processes = usePolling(fetchProcesses, 2000);
   const health = usePolling(fetchHealth, 5000);
@@ -27,13 +30,13 @@ export default function App() {
   useEffect(() => {
     const sys = system.data;
     if (!sys) return;
-    const t = Date.parse(sys.timestamp) || Date.now();
+    const ts = Date.parse(sys.timestamp) || Date.now();
     setHistory((prev) => {
-      if (prev.length > 0 && prev[prev.length - 1].t === t) return prev;
+      if (prev.length > 0 && prev[prev.length - 1].t === ts) return prev;
       return [
         ...prev,
         {
-          t,
+          t: ts,
           cpu: sys.cpu.usage_percent,
           memory: sys.memory.percent,
           gpu: sys.gpu.available ? sys.gpu.utilization_percent : null,
@@ -54,10 +57,10 @@ export default function App() {
         <Header hostname={null} osLabel={null} online={false} />
         <div className="card">
           <p className="banner banner-error" role="alert">
-            ⚠ Backend unreachable — is the server running on 127.0.0.1:8000?
+            {t.states.backendUnreachable}
           </p>
           <p className="muted">{system.error}</p>
-          <p className="muted">Retrying automatically…</p>
+          <p className="muted">{t.states.retrying}</p>
         </div>
       </div>
     );
@@ -68,7 +71,7 @@ export default function App() {
       <div className="page">
         <Header hostname={null} osLabel={null} online={health.data?.status === "ok"} />
         <div className="card">
-          <p className="loading-pulse">Loading system data…</p>
+          <p className="loading-pulse">{t.states.loadingSystem}</p>
         </div>
       </div>
     );
@@ -83,13 +86,13 @@ export default function App() {
       />
       {system.error && (
         <p className="banner banner-error" role="alert">
-          ⚠ System refresh failed: {system.error} — showing last successful data.
+          {tr(t.states.systemRefreshFailed, { error: system.error })}
         </p>
       )}
 
       <section aria-labelledby="sysinfo-title">
         <h2 id="sysinfo-title" className="section-title">
-          System information
+          {t.sections.systemInfo}
         </h2>
         <div className="card">
           <SystemInfoPanel system={sys} machineUptimeSeconds={machineUptime} />
@@ -98,60 +101,67 @@ export default function App() {
 
       <section aria-labelledby="live-title">
         <h2 id="live-title" className="section-title">
-          Live monitoring
+          {t.sections.liveMonitoring}
         </h2>
         <div className="gauge-row">
           <GaugeCard
-            label="CPU utilization"
+            label={t.gauges.cpu}
             percent={sys.cpu.usage_percent}
             accent={SERIES.cpu}
             unavailableReason={sys.cpu.error}
             detail={
               <span>
-                {sys.cpu.model ?? "Unknown model"} ·{" "}
-                {sys.cpu.cores_logical ?? "?"} threads
+                {tr(t.gauges.cpuDetail, {
+                  model: sys.cpu.model ?? t.gauges.unknownModel,
+                  threads: sys.cpu.cores_logical ?? "?",
+                })}
               </span>
             }
           />
           <GaugeCard
-            label="Memory utilization"
+            label={t.gauges.memory}
             percent={sys.memory.percent}
             accent={SERIES.memory}
             unavailableReason={sys.memory.error}
             detail={
               <span>
-                {fmtBytes(sys.memory.used)} used of {fmtBytes(sys.memory.total)} ·{" "}
-                {fmtBytes(sys.memory.available)} available
+                {tr(t.gauges.memoryDetail, {
+                  used: fmtBytes(sys.memory.used),
+                  total: fmtBytes(sys.memory.total),
+                  available: fmtBytes(sys.memory.available),
+                })}
               </span>
             }
           />
           <GaugeCard
-            label="GPU utilization"
+            label={t.gauges.gpu}
             percent={sys.gpu.available ? sys.gpu.utilization_percent : null}
             accent={SERIES.gpu}
             unavailableReason={
-              sys.gpu.available ? sys.gpu.reason : sys.gpu.reason ?? "No NVIDIA GPU detected."
+              sys.gpu.available ? sys.gpu.reason : sys.gpu.reason ?? t.gauges.noNvidiaGpu
             }
             detail={
               <span>
-                {sys.gpu.name ?? "Unknown GPU"} · VRAM{" "}
-                {fmtBytes(sys.gpu.memory_used_bytes)} /{" "}
-                {fmtBytes(sys.gpu.memory_total_bytes)}
+                {tr(t.gauges.gpuDetail, {
+                  name: sys.gpu.name ?? t.gauges.unknownGpu,
+                  used: fmtBytes(sys.gpu.memory_used_bytes),
+                  total: fmtBytes(sys.gpu.memory_total_bytes),
+                })}
               </span>
             }
           />
         </div>
         <div className="card">
-          <div className="card-title">Utilization history (last ~2 minutes)</div>
+          <div className="card-title">{t.chart.title}</div>
           <LiveChart data={history} />
         </div>
         <div className="two-col">
           <div className="card">
-            <div className="card-title">Network transfer rates</div>
+            <div className="card-title">{t.network.title}</div>
             <NetworkPanel network={sys.network} />
           </div>
           <div className="card">
-            <div className="card-title">Disk usage</div>
+            <div className="card-title">{t.disks.title}</div>
             <DisksPanel disks={sys.disks} />
           </div>
         </div>
@@ -159,7 +169,7 @@ export default function App() {
 
       <section aria-labelledby="proc-title">
         <h2 id="proc-title" className="section-title">
-          Process explorer
+          {t.sections.processExplorer}
         </h2>
         <div className="card">
           <ProcessExplorer
@@ -182,19 +192,21 @@ function Header({
   osLabel: string | null;
   online: boolean;
 }) {
+  const { t } = useContext(I18nContext);
   return (
     <header className="page-header">
-      <h1>PC Monitor</h1>
+      <h1>{t.header.title}</h1>
       <p className="header-meta">
-        {hostname ?? "Connecting…"}
+        {hostname ?? t.header.connecting}
         {osLabel ? ` · ${osLabel}` : ""}
       </p>
+      <LanguageSelect />
       <span
         className="status-dot"
         style={{ color: online ? STATUS.good : STATUS.critical }}
         role="status"
       >
-        ● {online ? "Live" : "Offline"}
+        ● {online ? t.header.live : t.header.offline}
       </span>
     </header>
   );

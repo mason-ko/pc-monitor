@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
+import { I18nContext } from "../i18n";
 import { fmtPercent } from "../format";
 
 interface GaugeCardProps {
@@ -16,6 +17,7 @@ export function GaugeCard({
   detail,
   unavailableReason,
 }: GaugeCardProps) {
+  const { t } = useContext(I18nContext);
   const available = percent !== null;
   return (
     <div className="card gauge">
@@ -24,7 +26,7 @@ export function GaugeCard({
         {label}
       </div>
       <div className={available ? "gauge-value" : "gauge-value unavailable"}>
-        {available ? fmtPercent(percent) : "Unavailable"}
+        {available ? fmtPercent(percent) : t.states.unavailable}
       </div>
       <div
         className="track"
@@ -33,7 +35,7 @@ export function GaugeCard({
         aria-valuenow={available ? percent : undefined}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuetext={available ? fmtPercent(percent) : "unavailable"}
+        aria-valuetext={available ? fmtPercent(percent) : t.states.unavailableLower}
       >
         <div
           className="fill"
@@ -48,7 +50,7 @@ export function GaugeCard({
           detail
         ) : (
           <span className="muted">
-            {unavailableReason ?? "This metric could not be measured."}
+            {unavailableReason ?? t.states.metricNotMeasured}
           </span>
         )}
       </div>

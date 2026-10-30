@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -9,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { CHART, SERIES } from "../colors";
+import { I18nContext } from "../i18n";
 import { timeLabel } from "../format";
 
 export interface ChartPoint {
@@ -23,8 +25,9 @@ interface LiveChartProps {
 }
 
 export function LiveChart({ data }: LiveChartProps) {
+  const { t, lang } = useContext(I18nContext);
   if (data.length < 2) {
-    return <div className="chart-placeholder">Collecting samples…</div>;
+    return <div className="chart-placeholder">{t.chart.collecting}</div>;
   }
   return (
     <ResponsiveContainer width="100%" height={260}>
@@ -35,7 +38,7 @@ export function LiveChart({ data }: LiveChartProps) {
           type="number"
           scale="time"
           domain={["dataMin", "dataMax"]}
-          tickFormatter={timeLabel}
+          tickFormatter={(ts: number) => timeLabel(ts, lang)}
           stroke={CHART.axis}
           tick={{ fill: CHART.muted, fontSize: 11 }}
           minTickGap={48}
@@ -49,7 +52,7 @@ export function LiveChart({ data }: LiveChartProps) {
           width={46}
         />
         <Tooltip
-          labelFormatter={(t) => timeLabel(Number(t))}
+          labelFormatter={(ts) => timeLabel(Number(ts), lang)}
           formatter={(value: number | string, name: string) => [
             typeof value === "number" ? `${value.toFixed(1)}%` : value,
             name,
@@ -67,7 +70,7 @@ export function LiveChart({ data }: LiveChartProps) {
         <Line
           type="monotone"
           dataKey="cpu"
-          name="CPU"
+          name={t.chart.seriesCpu}
           stroke={SERIES.cpu}
           strokeWidth={2}
           dot={false}
@@ -76,7 +79,7 @@ export function LiveChart({ data }: LiveChartProps) {
         <Line
           type="monotone"
           dataKey="memory"
-          name="Memory"
+          name={t.chart.seriesMemory}
           stroke={SERIES.memory}
           strokeWidth={2}
           dot={false}
@@ -85,7 +88,7 @@ export function LiveChart({ data }: LiveChartProps) {
         <Line
           type="monotone"
           dataKey="gpu"
-          name="GPU"
+          name={t.chart.seriesGpu}
           stroke={SERIES.gpu}
           strokeWidth={2}
           dot={false}

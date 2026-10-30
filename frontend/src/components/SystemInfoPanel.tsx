@@ -1,4 +1,6 @@
+import { useContext } from "react";
 import type { SystemInfo } from "../api";
+import { I18nContext, tr } from "../i18n";
 import { fmtDuration } from "../format";
 
 interface SystemInfoPanelProps {
@@ -10,25 +12,26 @@ export function SystemInfoPanel({
   system,
   machineUptimeSeconds,
 }: SystemInfoPanelProps) {
+  const { t } = useContext(I18nContext);
+  const cores = system.cpu.cores_logical
+    ? system.cpu.cores_physical
+      ? tr(t.sysinfo.coresWithPhysical, {
+          logical: system.cpu.cores_logical,
+          physical: system.cpu.cores_physical,
+        })
+      : tr(t.sysinfo.coresLogical, { logical: system.cpu.cores_logical })
+    : t.states.unavailable;
   const items: Array<[string, string]> = [
-    ["Hostname", system.hostname],
-    ["OS", system.os.version_label ?? "Unknown"],
-    ["CPU model", system.cpu.model ?? "Unavailable"],
+    [t.sysinfo.hostname, system.hostname],
+    [t.sysinfo.os, system.os.version_label ?? t.states.unknown],
+    [t.sysinfo.cpuModel, system.cpu.model ?? t.states.unavailable],
+    [t.sysinfo.cpuCores, cores],
+    [t.sysinfo.machineUptime, fmtDuration(machineUptimeSeconds, t.duration)],
     [
-      "CPU cores",
-      system.cpu.cores_logical
-        ? `${system.cpu.cores_logical} logical` +
-          (system.cpu.cores_physical
-            ? ` · ${system.cpu.cores_physical} physical`
-            : "")
-        : "Unavailable",
-    ],
-    ["Machine uptime", fmtDuration(machineUptimeSeconds)],
-    [
-      "GPU",
+      t.sysinfo.gpu,
       system.gpu.available && system.gpu.name
         ? system.gpu.name
-        : "Unavailable",
+        : t.states.unavailable,
     ],
   ];
   return (

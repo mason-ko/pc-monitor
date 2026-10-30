@@ -52,6 +52,8 @@ npm run build      :: type-checks with tsc and builds into dist/
 
 ## Tests
 
+### Backend
+
 ```bat
 cd backend
 python -m pip install -r requirements.txt
@@ -64,6 +66,20 @@ fallbacks (missing `nvidia-smi`, non-zero exit, timeout, `N/A` values),
 disappearing/access-denied processes, and invalid requests (422/404/405).
 Mocks are used only for those exceptional paths; normal operation collects
 real system data.
+
+### Frontend
+
+```bat
+cd frontend
+npm install
+npm test        :: Vitest + jsdom
+```
+
+16 tests cover: the English/Korean message catalogs (identical keys and
+placeholders), language persistence rules in `localStorage`
+(`pc-monitor.lang`, browser-locale fallback), and live UI behavior —
+switching to Korean re-renders every string and the choice is restored
+on the next load.
 
 ## API
 
@@ -88,8 +104,9 @@ pc-monitor/
 ├── frontend/
 │   ├── src/App.tsx        layout, polling, chart history
 │   ├── src/usePolling.ts  single-timer polling with overlap guard
+│   ├── src/i18n/          en/ko catalogs, provider, persistence
 │   ├── src/components/    gauges, live chart, panels, process explorer
-│   └── vite.config.ts     /api proxy → 127.0.0.1:8000
+│   └── vite.config.ts     /api proxy → 127.0.0.1:8000 + Vitest config
 ├── start.bat
 └── README.md
 ```

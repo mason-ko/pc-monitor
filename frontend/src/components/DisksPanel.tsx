@@ -1,13 +1,20 @@
+import { useContext } from "react";
 import type { DisksSection } from "../api";
 import { SERIES } from "../colors";
+import { I18nContext, tr } from "../i18n";
 import { fmtBytes, fmtPercent } from "../format";
 
 export function DisksPanel({ disks }: { disks: DisksSection }) {
+  const { t } = useContext(I18nContext);
   if (disks.error) {
-    return <p className="unavailable-note">Disk data unavailable: {disks.error}</p>;
+    return (
+      <p className="unavailable-note">
+        {tr(t.disks.unavailable, { error: disks.error })}
+      </p>
+    );
   }
   if (disks.partitions.length === 0) {
-    return <p className="muted">No mounted disk partitions found.</p>;
+    return <p className="muted">{t.disks.noPartitions}</p>;
   }
   return (
     <div className="disk-list">
@@ -24,7 +31,7 @@ export function DisksPanel({ disks }: { disks: DisksSection }) {
               <div
                 className="track"
                 role="meter"
-                aria-label={`Usage of ${part.mountpoint}`}
+                aria-label={tr(t.disks.usageOf, { mount: part.mountpoint })}
                 aria-valuenow={part.percent ?? undefined}
                 aria-valuemin={0}
                 aria-valuemax={100}
@@ -38,9 +45,13 @@ export function DisksPanel({ disks }: { disks: DisksSection }) {
                 />
               </div>
               <div className="disk-detail">
-                <span>{fmtPercent(part.percent)} used</span>
+                <span>{tr(t.disks.percentUsed, { percent: fmtPercent(part.percent) })}</span>
                 <span className="muted">
-                  {fmtBytes(part.used)} / {fmtBytes(part.total)} · {fmtBytes(part.free)} free
+                  {tr(t.disks.detail, {
+                    used: fmtBytes(part.used),
+                    total: fmtBytes(part.total),
+                    free: fmtBytes(part.free),
+                  })}
                 </span>
               </div>
             </>

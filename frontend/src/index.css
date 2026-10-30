@@ -57,6 +57,21 @@ body {
   font-weight: 600;
 }
 
+.lang-select {
+  background: var(--surface-raised);
+  color: var(--ink-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.lang-select:focus {
+  outline: 2px solid #3987e5;
+  outline-offset: 1px;
+}
+
 .section-title {
   font-size: 12px;
   text-transform: uppercase;
